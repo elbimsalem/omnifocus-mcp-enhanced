@@ -6,6 +6,7 @@ import { tmpdir } from 'os';
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
 import { existsSync } from 'fs';
+import { sanitizeForJson } from './sanitize.js';
 
 const execAsync = promisify(exec);
 
@@ -57,18 +58,18 @@ export async function executeJXA(script: string): Promise<any[]> {
     // Clean up the temporary file
     unlinkSync(tempFile);
     
-    // Parse the output as JSON
+    // Parse the output as JSON and sanitize isolated surrogates
     try {
       const result = JSON.parse(stdout);
-      return result;
+      return sanitizeForJson(result) as any[];
     } catch (e) {
       console.error("Failed to parse script output as JSON:", e);
-      
+
       // If this contains a "Found X tasks" message, treat it as a successful non-JSON response
       if (stdout.includes("Found") && stdout.includes("tasks")) {
         return [];
       }
-      
+
       return [];
     }
   } catch (error) {
@@ -168,19 +169,18 @@ export async function executeOmniFocusScript(scriptPath: string, args?: any): Pr
     // Create a temporary file for our JXA wrapper script
     const tempFile = join(tmpdir(), `jxa_wrapper_${Date.now()}.js`);
     
-    // Escape the script content properly for use in JXA
-    const escapedScript = scriptContent.replace(/\\/g, '\\\\').replace(/`/g, '\\`').replace(/\$/g, '\\$');
-    
     // Create a JXA script that will execute our OmniJS script in OmniFocus
+    // Use JSON.stringify to safely embed the script content — avoids escaping issues
+    // with template literals (backticks, ${...}) in OmniJS scripts like omnifocusDump.js
     const jxaScript = `
     function run() {
       try {
         const app = Application('OmniFocus');
         app.includeStandardAdditions = true;
-        
+
         // Run the OmniJS script in OmniFocus and capture the output
-        const result = app.evaluateJavascript(\`${escapedScript}\`);
-        
+        const result = app.evaluateJavascript(${JSON.stringify(scriptContent)});
+
         // Return the result
         return result;
       } catch (e) {
@@ -193,8 +193,9 @@ export async function executeOmniFocusScript(scriptPath: string, args?: any): Pr
     writeFileSync(tempFile, jxaScript);
     
     // Execute the JXA script using osascript
-    const { stdout, stderr } = await execAsync(`osascript -l JavaScript ${tempFile}`);
-    
+    // Increase maxBuffer to support large OmniFocus databases (1000+ tasks)
+    const { stdout, stderr } = await execAsync(`osascript -l JavaScript ${tempFile}`, { maxBuffer: 10 * 1024 * 1024 });
+
     // Clean up the temporary file
     unlinkSync(tempFile);
     
@@ -202,9 +203,9 @@ export async function executeOmniFocusScript(scriptPath: string, args?: any): Pr
       console.error("Script stderr output:", stderr);
     }
     
-    // Parse the output as JSON
+    // Parse the output as JSON and sanitize isolated surrogates
     try {
-      return JSON.parse(stdout);
+      return sanitizeForJson(JSON.parse(stdout));
     } catch (parseError) {
       console.error("Error parsing script output:", parseError);
       return stdout;
