@@ -1,4 +1,5 @@
 import { executeOmniFocusScript } from '../../utils/scriptExecution.js';
+import { formatTaskLine } from '../../utils/taskFormatting.js';
 
 export interface GetInboxTasksOptions {
   hideCompleted?: boolean;
@@ -26,25 +27,16 @@ export async function getInboxTasks(options: GetInboxTasksOptions = {}): Promise
       }
 
       // Format the inbox tasks
-      let output = `# INBOX TASKS\n\n`;
+      let output = `# Inbox\n\n`;
 
       if (data.tasks && Array.isArray(data.tasks)) {
         if (data.tasks.length === 0) {
-          output += '📪 Inbox is empty - well done!\n';
+          output += 'Inbox is empty.\n';
         } else {
-          output += `📥 Found ${data.tasks.length} task${data.tasks.length === 1 ? '' : 's'} in inbox:\n\n`;
+          output += `Found ${data.tasks.length} task${data.tasks.length === 1 ? '' : 's'} in inbox:\n\n`;
 
-          data.tasks.forEach((task: any, index: number) => {
-            const flagSymbol = task.flagged ? '🚩 ' : '';
-            const dueDateStr = task.dueDate ? ` [DUE: ${new Date(task.dueDate).toLocaleDateString()}]` : '';
-            const plannedDateStr = task.plannedDate ? ` [PLAN: ${new Date(task.plannedDate).toLocaleDateString()}]` : '';
-            const statusStr = task.taskStatus !== 'Available' ? ` (${task.taskStatus})` : '';
-
-            output += `${index + 1}. ${flagSymbol}${task.name}${dueDateStr}${plannedDateStr}${statusStr}\n`;
-
-            if (task.note && task.note.trim()) {
-              output += `   📝 ${task.note.trim()}\n`;
-            }
+          data.tasks.forEach((task: any) => {
+            output += formatTaskLine(task);
           });
         }
       } else {

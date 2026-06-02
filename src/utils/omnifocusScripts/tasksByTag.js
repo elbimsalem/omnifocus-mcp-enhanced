@@ -112,6 +112,8 @@
           projectId: task.containingProject ? task.containingProject.id.primaryKey : null,
           projectName: task.containingProject ? task.containingProject.name : null,
           inInbox: task.inInbox,
+          childrenCount: (task.flattenedChildren || task.children || []).length,
+          openChildrenCount: (task.flattenedChildren || task.children || []).filter(c => !c.completed).length,
           tags: task.tags.map(tag => ({
             id: tag.id.primaryKey,
             name: tag.name

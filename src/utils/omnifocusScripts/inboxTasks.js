@@ -62,6 +62,8 @@
           deferDate: formatDate(task.deferDate),
           plannedDate: formatDate(task.plannedDate),
           estimatedMinutes: task.estimatedMinutes,
+          childrenCount: (task.flattenedChildren || task.children || []).length,
+          openChildrenCount: (task.flattenedChildren || task.children || []).filter(c => !c.completed).length,
           tags: task.tags.map(tag => ({
             id: tag.id.primaryKey,
             name: tag.name

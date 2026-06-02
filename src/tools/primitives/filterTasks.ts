@@ -1,4 +1,5 @@
 import { executeOmniFocusScript } from '../../utils/scriptExecution.js';
+import { formatTaskLine } from '../../utils/taskFormatting.js';
 
 export interface FilterTasksOptions {
   // 🎯 任务状态过滤
@@ -367,7 +368,7 @@ export async function filterTasks(options: FilterTasksOptions = {}): Promise<str
             }
 
             tasks.forEach((task: any) => {
-              output += formatTask(task);
+              output += formatTaskLine(task);
             });
 
             if (tasksByProject.size > 1) {
@@ -470,74 +471,4 @@ function groupTasksByProject(tasks: any[]): Map<string, any[]> {
   });
 
   return grouped;
-}
-
-// Format an ISO datetime string as a plain YYYY-MM-DD date
-function formatDateOnly(value: string): string {
-  const d = new Date(value);
-  if (isNaN(d.getTime())) return value;
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  return `${y}-${m}-${day}`;
-}
-
-// Format a single task as clean, emoji-free text:
-//   - <name> [<qualifiers>]
-//       key: value | key: value
-function formatTask(task: any): string {
-  // An action group is any task with children. OmniFocus marks any parent with
-  // open children as "Blocked", which is noise — we label it "group" instead and
-  // report the count of open descendants (the real size of the batch).
-  const isGroup = (task.childrenCount ?? 0) > 0;
-
-  // Title line with bracketed qualifiers
-  const qualifiers: string[] = [];
-  if (task.flagged) qualifiers.push('flagged');
-  if (isGroup) {
-    const open = task.openChildrenCount ?? task.childrenCount;
-    qualifiers.push(`group, ${open} ${open === 1 ? 'item' : 'items'}`);
-  }
-  let output = `- ${task.name}`;
-  if (qualifiers.length > 0) output += ` [${qualifiers.join('; ')}]`;
-  output += '\n';
-
-  // Indented metadata line(s)
-  const meta: string[] = [];
-
-  // Status — skip "Available" (the default) and suppress "Blocked" for groups
-  if (!isGroup && task.taskStatus && task.taskStatus !== 'Available') {
-    meta.push(`status: ${task.taskStatus}`);
-  }
-
-  if (task.dueDate) {
-    const overdue = new Date(task.dueDate) < new Date();
-    meta.push(`due: ${formatDateOnly(task.dueDate)}${overdue ? ' (overdue)' : ''}`);
-  }
-  if (task.deferDate) meta.push(`defer: ${formatDateOnly(task.deferDate)}`);
-  if (task.plannedDate) meta.push(`plan: ${formatDateOnly(task.plannedDate)}`);
-  if (task.completedDate) meta.push(`done: ${formatDateOnly(task.completedDate)}`);
-
-  if (task.estimatedMinutes) {
-    const hours = Math.floor(task.estimatedMinutes / 60);
-    const minutes = task.estimatedMinutes % 60;
-    meta.push(`est: ${hours > 0 ? `${hours}h${minutes > 0 ? `${minutes}m` : ''}` : `${minutes}m`}`);
-  }
-
-  if (task.id) meta.push(`id: ${task.id}`);
-
-  if (task.tags && task.tags.length > 0) {
-    meta.push(`tags: ${task.tags.map((tag: any) => tag.name).join(', ')}`);
-  }
-
-  if (meta.length > 0) {
-    output += `    ${meta.join(' | ')}\n`;
-  }
-
-  // Note on its own indented line(s)
-  if (task.note && task.note.trim()) {
-    output += `    note: ${task.note.trim().replace(/\n/g, '\n    ')}\n`;
-  }
-
-  return output;
 }

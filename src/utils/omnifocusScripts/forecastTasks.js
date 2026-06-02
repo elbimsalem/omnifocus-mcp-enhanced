@@ -121,6 +121,8 @@
             projectName: task.containingProject ? task.containingProject.name : null,
             inInbox: task.inInbox,
             isDue: isDue, // Whether this is due or just becoming available
+            childrenCount: (task.flattenedChildren || task.children || []).length,
+            openChildrenCount: (task.flattenedChildren || task.children || []).filter(c => !c.completed).length,
             tags: task.tags.map(tag => ({
               id: tag.id.primaryKey,
               name: tag.name

@@ -1,4 +1,5 @@
 import { executeOmniFocusScript } from '../../utils/scriptExecution.js';
+import { formatTaskLine } from '../../utils/taskFormatting.js';
 
 export interface GetFlaggedTasksOptions {
   hideCompleted?: boolean;
@@ -28,58 +29,43 @@ export async function getFlaggedTasks(options: GetFlaggedTasksOptions = {}): Pro
       }
       
       // Format the flagged tasks
-      let output = `# 🚩 FLAGGED TASKS\n\n`;
-      
-      if (projectFilter) {
-        output = `# 🚩 FLAGGED TASKS - Project: ${projectFilter}\n\n`;
-      }
-      
+      let output = projectFilter
+        ? `# Flagged Tasks — project: ${projectFilter}\n\n`
+        : `# Flagged Tasks\n\n`;
+
       if (data.tasks && Array.isArray(data.tasks)) {
         if (data.tasks.length === 0) {
-          output += projectFilter 
-            ? `No flagged tasks found in project "${projectFilter}"\n`
-            : "🎉 No flagged tasks - nice and clean!\n";
+          output += projectFilter
+            ? `No flagged tasks in project "${projectFilter}".\n`
+            : "No flagged tasks.\n";
         } else {
           const taskCount = data.tasks.length;
           output += `Found ${taskCount} flagged task${taskCount === 1 ? '' : 's'}:\n\n`;
-          
+
           // Group tasks by project for better organization
           const tasksByProject = new Map<string, any[]>();
-          
+
           data.tasks.forEach((task: any) => {
-            const projectName = task.projectName || '📥 Inbox';
+            const projectName = task.projectName || 'Inbox';
             if (!tasksByProject.has(projectName)) {
               tasksByProject.set(projectName, []);
             }
             tasksByProject.get(projectName)!.push(task);
           });
-          
-          // Display tasks grouped by project
+
+          // Display tasks grouped by project (every row is flagged, so suppress the marker)
           tasksByProject.forEach((tasks, projectName) => {
             if (tasksByProject.size > 1) {
-              output += `## 📁 ${projectName}\n`;
+              output += `## ${projectName}\n\n`;
             }
-            
-            tasks.forEach((task: any, index: number) => {
-              const dueDateStr = task.dueDate ? ` [DUE: ${new Date(task.dueDate).toLocaleDateString()}]` : '';
-              const deferDateStr = task.deferDate ? ` [DEFER: ${new Date(task.deferDate).toLocaleDateString()}]` : '';
-              const plannedDateStr = task.plannedDate ? ` [PLAN: ${new Date(task.plannedDate).toLocaleDateString()}]` : '';
-              const statusStr = task.taskStatus !== 'Available' ? ` (${task.taskStatus})` : '';
-              const estimateStr = task.estimatedMinutes ? ` ⏱${task.estimatedMinutes}m` : '';
-              
-              output += `• 🚩 ${task.name}${dueDateStr}${deferDateStr}${plannedDateStr}${statusStr}${estimateStr}\n`;
-              
-              if (task.note && task.note.trim()) {
-                output += `  📝 ${task.note.trim()}\n`;
-              }
-              
-              if (task.tags && task.tags.length > 0) {
-                const tagNames = task.tags.map((tag: any) => tag.name).join(', ');
-                output += `  🏷 ${tagNames}\n`;
-              }
-              
-              output += '\n';
+
+            tasks.forEach((task: any) => {
+              output += formatTaskLine(task, { suppressFlagged: true });
             });
+
+            if (tasksByProject.size > 1) {
+              output += '\n';
+            }
           });
         }
       } else {
