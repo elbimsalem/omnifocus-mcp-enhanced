@@ -12,6 +12,7 @@
     "copy-files": "mkdir -p dist/utils/omnifocusScripts && cp src/utils/omnifocusScripts/*.js dist/utils/omnifocusScripts/",
     "start": "node dist/server.js",
     "dev": "tsc -w",
+    "prepare": "npm run build",
     "prepublishOnly": "npm run build",
     "test": "echo \"Test passed - manual testing required with OmniFocus\""
   },

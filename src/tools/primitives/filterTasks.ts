@@ -328,12 +328,12 @@ export async function filterTasks(options: FilterTasksOptions = {}): Promise<str
       }
 
       // 格式化过滤结果
-      let output = `# 🔍 FILTERED TASKS\n\n`;
+      let output = `# Filtered Tasks\n\n`;
 
       // 显示过滤条件摘要
       const filterSummary = buildFilterSummary(options);
       if (filterSummary) {
-        output += `**Filter**: ${filterSummary}\n\n`;
+        output += `Filter: ${filterSummary}\n\n`;
       }
 
       if (data.tasks && Array.isArray(data.tasks)) {
@@ -344,10 +344,10 @@ export async function filterTasks(options: FilterTasksOptions = {}): Promise<str
         const totalCount = sortedTasks.length;
 
         if (taskCount === 0) {
-          output += '🎯 No tasks match your filter criteria.\n';
+          output += 'No tasks match your filter criteria.\n';
 
           // 提供一些建议
-          output += '\n**Tips**:\n';
+          output += '\nTips:\n';
           output += '- Try broadening your search criteria\n';
           output += '- Check if tasks exist in the specified project/tags\n';
           output += '- Use `get_inbox_tasks` or `get_flagged_tasks` for basic views\n';
@@ -363,12 +363,11 @@ export async function filterTasks(options: FilterTasksOptions = {}): Promise<str
 
           tasksByProject.forEach((tasks, projectName) => {
             if (tasksByProject.size > 1) {
-              output += `## 📁 ${projectName}\n`;
+              output += `## ${projectName}\n\n`;
             }
 
             tasks.forEach((task: any) => {
               output += formatTask(task);
-              output += '\n';
             });
 
             if (tasksByProject.size > 1) {
@@ -377,7 +376,7 @@ export async function filterTasks(options: FilterTasksOptions = {}): Promise<str
           });
 
           // 显示排序信息
-          output += `\n📊 **Sorted by**: ${sortBy} (${sortOrder})\n`;
+          output += `\nSorted by: ${sortBy} (${sortOrder})\n`;
         }
       } else {
         output += 'No task data available\n';
@@ -462,7 +461,7 @@ function groupTasksByProject(tasks: any[]): Map<string, any[]> {
   const grouped = new Map<string, any[]>();
 
   tasks.forEach(task => {
-    const projectName = task.projectName || (task.inInbox ? '📥 Inbox' : '📂 No Project');
+    const projectName = task.projectName || (task.inInbox ? 'Inbox' : 'No Project');
 
     if (!grouped.has(projectName)) {
       grouped.set(projectName, []);
@@ -473,91 +472,72 @@ function groupTasksByProject(tasks: any[]): Map<string, any[]> {
   return grouped;
 }
 
-// 格式化单个任务
+// Format an ISO datetime string as a plain YYYY-MM-DD date
+function formatDateOnly(value: string): string {
+  const d = new Date(value);
+  if (isNaN(d.getTime())) return value;
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+// Format a single task as clean, emoji-free text:
+//   - <name> [<qualifiers>]
+//       key: value | key: value
 function formatTask(task: any): string {
-  let output = '';
+  // An action group is any task with children. OmniFocus marks any parent with
+  // open children as "Blocked", which is noise — we label it "group" instead and
+  // report the count of open descendants (the real size of the batch).
+  const isGroup = (task.childrenCount ?? 0) > 0;
 
-  // 任务基本信息
-  const flagSymbol = task.flagged ? '🚩 ' : '';
-  const statusEmoji = getStatusEmoji(task.taskStatus);
+  // Title line with bracketed qualifiers
+  const qualifiers: string[] = [];
+  if (task.flagged) qualifiers.push('flagged');
+  if (isGroup) {
+    const open = task.openChildrenCount ?? task.childrenCount;
+    qualifiers.push(`group, ${open} ${open === 1 ? 'item' : 'items'}`);
+  }
+  let output = `- ${task.name}`;
+  if (qualifiers.length > 0) output += ` [${qualifiers.join('; ')}]`;
+  output += '\n';
 
-  output += `${statusEmoji} ${flagSymbol}${task.name}`;
+  // Indented metadata line(s)
+  const meta: string[] = [];
 
-  // 日期信息
-  const dateInfo: string[] = [];
+  // Status — skip "Available" (the default) and suppress "Blocked" for groups
+  if (!isGroup && task.taskStatus && task.taskStatus !== 'Available') {
+    meta.push(`status: ${task.taskStatus}`);
+  }
+
   if (task.dueDate) {
-    const dueDateStr = new Date(task.dueDate).toLocaleDateString();
-    const isOverdue = new Date(task.dueDate) < new Date();
-    dateInfo.push(isOverdue ? `⚠️ DUE: ${dueDateStr}` : `📅 DUE: ${dueDateStr}`);
+    const overdue = new Date(task.dueDate) < new Date();
+    meta.push(`due: ${formatDateOnly(task.dueDate)}${overdue ? ' (overdue)' : ''}`);
   }
-
-  if (task.deferDate) {
-    const deferDateStr = new Date(task.deferDate).toLocaleDateString();
-    dateInfo.push(`🚀 DEFER: ${deferDateStr}`);
-  }
-
-  if (task.plannedDate) {
-    const plannedDateStr = new Date(task.plannedDate).toLocaleDateString();
-    dateInfo.push(`🗓 PLAN: ${plannedDateStr}`);
-  }
-
-  if (task.completedDate) {
-    const completedDateStr = new Date(task.completedDate).toLocaleDateString();
-    dateInfo.push(`✅ DONE: ${completedDateStr}`);
-  }
-
-  if (dateInfo.length > 0) {
-    output += ` [${dateInfo.join(', ')}]`;
-  }
-
-  // 其他信息
-  const additionalInfo: string[] = [];
-
-  if (task.taskStatus && task.taskStatus !== 'Available') {
-    additionalInfo.push(task.taskStatus);
-  }
+  if (task.deferDate) meta.push(`defer: ${formatDateOnly(task.deferDate)}`);
+  if (task.plannedDate) meta.push(`plan: ${formatDateOnly(task.plannedDate)}`);
+  if (task.completedDate) meta.push(`done: ${formatDateOnly(task.completedDate)}`);
 
   if (task.estimatedMinutes) {
     const hours = Math.floor(task.estimatedMinutes / 60);
     const minutes = task.estimatedMinutes % 60;
-    if (hours > 0) {
-      additionalInfo.push(`⏱ ${hours}h${minutes > 0 ? `${minutes}m` : ''}`);
-    } else {
-      additionalInfo.push(`⏱ ${minutes}m`);
-    }
+    meta.push(`est: ${hours > 0 ? `${hours}h${minutes > 0 ? `${minutes}m` : ''}` : `${minutes}m`}`);
   }
 
-  if (additionalInfo.length > 0) {
-    output += ` (${additionalInfo.join(', ')})`;
-  }
+  if (task.id) meta.push(`id: ${task.id}`);
 
-  output += '\n';
-
-  // 任务备注
-  if (task.note && task.note.trim()) {
-    output += `  📝 ${task.note.trim()}\n`;
-  }
-
-  // 标签
   if (task.tags && task.tags.length > 0) {
-    const tagNames = task.tags.map((tag: any) => tag.name).join(', ');
-    output += `  🏷 ${tagNames}\n`;
+    meta.push(`tags: ${task.tags.map((tag: any) => tag.name).join(', ')}`);
+  }
+
+  if (meta.length > 0) {
+    output += `    ${meta.join(' | ')}\n`;
+  }
+
+  // Note on its own indented line(s)
+  if (task.note && task.note.trim()) {
+    output += `    note: ${task.note.trim().replace(/\n/g, '\n    ')}\n`;
   }
 
   return output;
-}
-
-// 获取状态对应的emoji
-function getStatusEmoji(status: string): string {
-  const statusMap: { [key: string]: string } = {
-    Available: '⚪',
-    Next: '🔵',
-    Blocked: '🔴',
-    DueSoon: '🟡',
-    Overdue: '🔴',
-    Completed: '✅',
-    Dropped: '⚫'
-  };
-
-  return statusMap[status] || '⚪';
 }
