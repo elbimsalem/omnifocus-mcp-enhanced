@@ -27,6 +27,24 @@ test('appleScriptDateCode builds locale-independent date construction', () => {
   assert.match(code, /set seconds of dueDateValue to 0/);
 });
 
+test('appleScriptDateCode preserves a time-of-day when the input carries one', () => {
+  const code = appleScriptDateCode('2026-06-04T13:30:00', 'plannedDateValue');
+
+  assert.match(code, /set year of plannedDateValue to 2026/);
+  assert.match(code, /set month of plannedDateValue to 6/);
+  assert.match(code, /set day of plannedDateValue to 4/);
+  assert.match(code, /set hours of plannedDateValue to 13/);
+  assert.match(code, /set minutes of plannedDateValue to 30/);
+  assert.match(code, /set seconds of plannedDateValue to 0/);
+});
+
+test('appleScriptDateCode handles HH:MM without seconds', () => {
+  const code = appleScriptDateCode('2026-06-04T09:05', 'd');
+  assert.match(code, /set hours of d to 9/);
+  assert.match(code, /set minutes of d to 5/);
+  assert.match(code, /set seconds of d to 0/);
+});
+
 test('appleScriptDateCode rejects invalid variable names', () => {
   assert.throws(() => appleScriptDateCode('2026-02-28', 'invalid name'));
 });

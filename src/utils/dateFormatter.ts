@@ -80,13 +80,20 @@ export function appleScriptDateCode(isoDate: string, variableName: string): stri
 
   const [, year, month, day] = match;
 
+  // Preserve a time-of-day if the input carries one (e.g. "2026-06-04T13:30[:00]");
+  // date-only inputs keep the previous midnight behaviour.
+  const timeMatch = /T(\d{2}):(\d{2})(?::(\d{2}))?/.exec(isoDate.trim());
+  const hours = timeMatch ? Number(timeMatch[1]) : 0;
+  const minutes = timeMatch ? Number(timeMatch[2]) : 0;
+  const seconds = timeMatch && timeMatch[3] ? Number(timeMatch[3]) : 0;
+
   return `
     set ${variableName} to current date
     set day of ${variableName} to 1
     set year of ${variableName} to ${Number(year)}
     set month of ${variableName} to ${Number(month)}
     set day of ${variableName} to ${Number(day)}
-    set hours of ${variableName} to 0
-    set minutes of ${variableName} to 0
-    set seconds of ${variableName} to 0`;
+    set hours of ${variableName} to ${hours}
+    set minutes of ${variableName} to ${minutes}
+    set seconds of ${variableName} to ${seconds}`;
 }
