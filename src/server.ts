@@ -12,6 +12,9 @@ import * as editItemTool from './tools/definitions/editItem.js';
 import * as moveTaskTool from './tools/definitions/moveTask.js';
 import * as batchAddItemsTool from './tools/definitions/batchAddItems.js';
 import * as batchRemoveItemsTool from './tools/definitions/batchRemoveItems.js';
+import * as batchEditItemsTool from './tools/definitions/batchEditItems.js';
+import * as manageTagTool from './tools/definitions/manageTag.js';
+import * as manageFolderTool from './tools/definitions/manageFolder.js';
 import * as getTaskByIdTool from './tools/definitions/getTaskById.js';
 import * as readTaskAttachmentTool from './tools/definitions/readTaskAttachment.js';
 import * as getTodayCompletedTasksTool from './tools/definitions/getTodayCompletedTasks.js';
@@ -87,6 +90,27 @@ server.tool(
   "Remove multiple tasks or projects from OmniFocus in a single operation",
   batchRemoveItemsTool.schema.shape,
   batchRemoveItemsTool.handler
+);
+
+server.tool(
+  "batch_edit_items",
+  "Apply tag/flag edits to many tasks or projects in a single OmniFocus pass. Provide `ids` + a shared edit (addTags/removeTags/replaceTags/flagged), or `operations` for per-item edits. Far faster than one edit_item per task.",
+  batchEditItemsTool.schema.shape,
+  batchEditItemsTool.handler
+);
+
+server.tool(
+  "manage_tag",
+  "Create (optionally nested under a parent), rename, reparent, or delete a tag DEFINITION — structural tag ops edit_item can't do.",
+  manageTagTool.schema.shape,
+  manageTagTool.handler
+);
+
+server.tool(
+  "manage_folder",
+  "Create (optionally nested), rename (e.g. FINCANES → FINANCES), or delete a folder.",
+  manageFolderTool.schema.shape,
+  manageFolderTool.handler
 );
 
 
