@@ -44,7 +44,7 @@ Want to see where the project is heading next? See the [roadmap](docs/roadmap/20
 
 ## 🆕 Latest Release
 
-- **v1.6.11** - Added bulk + structural write ops via the OmniJS (`evaluateJavascript`) bridge: `batch_edit_items` (tag/flag edits across many tasks in a single pass — `ids` + shared edit, or per-item `operations`), `manage_tag` (create/nest/rename/reparent/delete a tag *definition*), and `manage_folder` (create/nest/rename/delete a folder).
+- **v1.6.11** - Added bulk + structural write ops via the OmniJS (`evaluateJavascript`) bridge: `batch_edit_items` (tag/flag edits across many tasks in a single pass — `ids` + shared edit, or per-item `operations`), `manage_tag` (create/nest/rename/reparent/delete a tag *definition*, plus `set`/`create` of tag **status** (active/onHold/dropped), **mutually-exclusive children** for a group, and **allowsNextAction**), and `manage_folder` (create/nest/rename/delete a folder).
 - **v1.6.10** - Fixed Inbox task completion via `edit_item`, fixed AppleScript special-character handling for apostrophes/backslashes, fixed JSON result escaping for special characters, and clarified `batch_add_items` / `mcporter` usage with working examples.
 - **v1.6.9** - Added task attachment support: `get_task_by_id` now lists attachment metadata, `dump_database` exports attachment/link metadata, and new `read_task_attachment` returns image attachments as MCP image content when possible.
 - **v1.6.8** - Added stable task move support via `move_task` and `edit_item` (`newProjectId/newProjectName/newParentTaskId/newParentTaskName/moveToInbox`) with duplicate-name protection and cycle-prevention checks.
@@ -497,7 +497,7 @@ read_task_attachment {
 7. **batch_add_items** - Bulk add (enhanced with subtask support)
 8. **batch_remove_items** - Bulk remove
 9. **batch_edit_items** - 🌟 **NEW**: Apply tag/flag edits to many tasks/projects in a single OmniFocus pass (`ids` + a shared edit, or per-item `operations`) — far faster than one `edit_item` per task
-10. **manage_tag** - 🌟 **NEW**: Create (optionally nested under a parent), rename, reparent, or delete a tag *definition* — structural tag ops `edit_item` can't do
+10. **manage_tag** - 🌟 **NEW**: Create (optionally nested under a parent), rename, reparent, delete, or `set` a tag *definition* — incl. status (active/onHold/paused/dropped), mutually-exclusive children (e.g. a "Modes" group), and allowsNextAction. Structural/property tag ops `edit_item` can't do (location/geofence not supported)
 11. **manage_folder** - 🌟 **NEW**: Create (optionally nested), rename, or delete a folder (e.g. fix a typo'd folder name)
 12. **get_task_by_id** - Query task information, including attachment metadata
 13. **read_task_attachment** - Read an attachment reported by `get_task_by_id`
