@@ -2,13 +2,21 @@ import { z } from 'zod';
 import { batchEditItems, BatchEditItemsParams } from '../primitives/batchEditItems.js';
 import { RequestHandlerExtra } from '@modelcontextprotocol/sdk/shared/protocol.js';
 
+const ISO_DATE = "ISO date (YYYY-MM-DD or full offset ISO like 2026-06-04T14:31:00+02:00); \"\" clears it; omit to leave unchanged.";
+const STATUS = z.enum(["incomplete", "completed", "dropped"]);
+
 export const schema = z.object({
   // Shared-edit mode: same change applied to every id.
-  ids: z.array(z.string()).optional().describe("Task/project IDs to apply the SAME edit to (shared-edit mode). Combine with addTags/removeTags/replaceTags/flagged below."),
+  ids: z.array(z.string()).optional().describe("Task/project IDs to apply the SAME edit to (shared-edit mode). Combine with the shared fields below."),
   addTags: z.array(z.string()).optional().describe("Shared mode: tags to add to every id (created if missing)."),
   removeTags: z.array(z.string()).optional().describe("Shared mode: tags to remove from every id."),
   replaceTags: z.array(z.string()).optional().describe("Shared mode: replace ALL tags on every id with these (wins over add/remove)."),
   flagged: z.boolean().optional().describe("Shared mode: set flagged on every id."),
+  newPlannedDate: z.string().optional().describe("Shared mode: planned date for every id. " + ISO_DATE),
+  newDueDate: z.string().optional().describe("Shared mode: due date for every id. " + ISO_DATE),
+  newDeferDate: z.string().optional().describe("Shared mode: defer date for every id. " + ISO_DATE),
+  newEstimatedMinutes: z.number().optional().describe("Shared mode: estimated minutes for every id."),
+  newStatus: STATUS.optional().describe("Shared mode: task status for every id."),
 
   // Per-item mode: explicit, possibly heterogeneous, operations.
   operations: z.array(z.object({
@@ -17,8 +25,13 @@ export const schema = z.object({
     removeTags: z.array(z.string()).optional().describe("Tags to remove."),
     replaceTags: z.array(z.string()).optional().describe("Replace ALL tags with these (wins over add/remove)."),
     flagged: z.boolean().optional().describe("Set flagged status."),
-  })).optional().describe("Explicit per-item operations (per-item mode). Use INSTEAD of ids+shared edits when items need different changes."),
-}).describe("Apply tag/flag edits to many tasks (or projects) in a single OmniFocus pass. Additive by default. Provide either `ids` + a shared edit, or `operations` for per-item edits.");
+    newPlannedDate: z.string().optional().describe("Planned date. " + ISO_DATE),
+    newDueDate: z.string().optional().describe("Due date. " + ISO_DATE),
+    newDeferDate: z.string().optional().describe("Defer date. " + ISO_DATE),
+    newEstimatedMinutes: z.number().optional().describe("Estimated minutes."),
+    newStatus: STATUS.optional().describe("Task status."),
+  })).optional().describe("Explicit per-item operations (per-item mode). Use INSTEAD of ids+shared edits when items need different changes — e.g. setting a different planned date per task in one reconcile-apply."),
+}).describe("Apply tag/flag/date/status edits to many tasks (or projects) in a single OmniFocus pass. Additive by default. Provide either `ids` + a shared edit, or `operations` for per-item edits. Collapses a whole reconcile-apply (N planned-date writes) into one call.");
 
 export async function handler(args: z.infer<typeof schema>, _extra: RequestHandlerExtra) {
   try {

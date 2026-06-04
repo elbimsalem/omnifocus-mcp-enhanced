@@ -17,6 +17,7 @@ import * as manageTagTool from './tools/definitions/manageTag.js';
 import * as manageFolderTool from './tools/definitions/manageFolder.js';
 import * as syncDatabaseTool from './tools/definitions/syncDatabase.js';
 import * as getTaskByIdTool from './tools/definitions/getTaskById.js';
+import * as batchGetTasksTool from './tools/definitions/batchGetTasks.js';
 import * as readTaskAttachmentTool from './tools/definitions/readTaskAttachment.js';
 import * as getTodayCompletedTasksTool from './tools/definitions/getTodayCompletedTasks.js';
 // Import perspective tools
@@ -95,7 +96,7 @@ server.tool(
 
 server.tool(
   "batch_edit_items",
-  "Apply tag/flag edits to many tasks or projects in a single OmniFocus pass. Provide `ids` + a shared edit (addTags/removeTags/replaceTags/flagged), or `operations` for per-item edits. Far faster than one edit_item per task.",
+  "Apply tag/flag/date/status edits to many tasks or projects in a single OmniFocus pass. Provide `ids` + a shared edit (tags/flagged/newPlannedDate/newDueDate/newDeferDate/newEstimatedMinutes/newStatus), or `operations` for per-item edits (e.g. a different planned date per task). Collapses a whole reconcile-apply into one call.",
   batchEditItemsTool.schema.shape,
   batchEditItemsTool.handler
 );
@@ -127,6 +128,13 @@ server.tool(
   "Get information about a specific task by ID or name",
   getTaskByIdTool.schema.shape,
   getTaskByIdTool.handler
+);
+
+server.tool(
+  "batch_get_tasks",
+  "Read many tasks by id in ONE OmniFocus pass (read counterpart to batch_edit_items). Returns JSON with full date/tag/project state per id; dates are local-offset ISO. Built for the reverse-sync/reconcile + hydrate flow — far faster than one get_task_by_id per id.",
+  batchGetTasksTool.schema.shape,
+  batchGetTasksTool.handler
 );
 
 server.tool(

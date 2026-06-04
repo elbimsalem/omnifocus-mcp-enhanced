@@ -3,6 +3,7 @@ import { evaluateOmniJs } from '../../utils/evaluateOmniJs.js';
 /**
  * A single batch edit operation, addressed by task/project id.
  * Tag fields mirror edit_item semantics: replaceTags wins over add/remove.
+ * Date fields mirror edit_item: ISO string to set, "" to clear, omit to leave.
  */
 export interface BatchEditOperation {
   id: string;
@@ -10,17 +11,27 @@ export interface BatchEditOperation {
   removeTags?: string[];
   replaceTags?: string[];
   flagged?: boolean;
+  newPlannedDate?: string;
+  newDueDate?: string;
+  newDeferDate?: string;
+  newEstimatedMinutes?: number;
+  newStatus?: 'incomplete' | 'completed' | 'dropped';
 }
 
 export interface BatchEditItemsParams {
   // Per-item mode: explicit operations.
   operations?: BatchEditOperation[];
-  // Shared-edit mode: apply the same tag/flag change to every id.
+  // Shared-edit mode: apply the same change to every id.
   ids?: string[];
   addTags?: string[];
   removeTags?: string[];
   replaceTags?: string[];
   flagged?: boolean;
+  newPlannedDate?: string;
+  newDueDate?: string;
+  newDeferDate?: string;
+  newEstimatedMinutes?: number;
+  newStatus?: 'incomplete' | 'completed' | 'dropped';
 }
 
 export interface BatchEditItemResult {
@@ -52,6 +63,11 @@ export function normalizeOperations(params: BatchEditItemsParams): BatchEditOper
       removeTags: params.removeTags,
       replaceTags: params.replaceTags,
       flagged: params.flagged,
+      newPlannedDate: params.newPlannedDate,
+      newDueDate: params.newDueDate,
+      newDeferDate: params.newDeferDate,
+      newEstimatedMinutes: params.newEstimatedMinutes,
+      newStatus: params.newStatus,
     }));
   }
   return [];
@@ -120,6 +136,28 @@ export async function batchEditItems(params: BatchEditItemsParams): Promise<Batc
         if (op.flagged !== undefined && op.flagged !== null) {
           item.flagged = op.flagged;
           changed.push('flagged');
+        }
+
+        // Dates: ISO string sets it, '' clears it, undefined/null leaves it. (OmniJS Date parses offset ISO.)
+        function applyDate(prop, val, label) {
+          if (val === undefined || val === null) return;
+          item[prop] = (val === '') ? null : new Date(val);
+          changed.push(label);
+        }
+        applyDate('plannedDate', op.newPlannedDate, 'planned');
+        applyDate('dueDate', op.newDueDate, 'due');
+        applyDate('deferDate', op.newDeferDate, 'defer');
+
+        if (op.newEstimatedMinutes !== undefined && op.newEstimatedMinutes !== null) {
+          item.estimatedMinutes = op.newEstimatedMinutes;
+          changed.push('estimate');
+        }
+
+        if (op.newStatus) {
+          if (op.newStatus === 'completed') item.markComplete();
+          else if (op.newStatus === 'incomplete') item.markIncomplete();
+          else if (op.newStatus === 'dropped') item.drop(false);
+          changed.push('status:' + op.newStatus);
         }
 
         return { id: op.id, name: item.name, success: true, changed };
