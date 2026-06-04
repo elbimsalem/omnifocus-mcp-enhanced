@@ -15,6 +15,7 @@ import * as batchRemoveItemsTool from './tools/definitions/batchRemoveItems.js';
 import * as batchEditItemsTool from './tools/definitions/batchEditItems.js';
 import * as manageTagTool from './tools/definitions/manageTag.js';
 import * as manageFolderTool from './tools/definitions/manageFolder.js';
+import * as syncDatabaseTool from './tools/definitions/syncDatabase.js';
 import * as getTaskByIdTool from './tools/definitions/getTaskById.js';
 import * as readTaskAttachmentTool from './tools/definitions/readTaskAttachment.js';
 import * as getTodayCompletedTasksTool from './tools/definitions/getTodayCompletedTasks.js';
@@ -111,6 +112,13 @@ server.tool(
   "Create (optionally nested), rename (e.g. FINCANES → FINANCES), or delete a folder.",
   manageFolderTool.schema.shape,
   manageFolderTool.handler
+);
+
+server.tool(
+  "sync_database",
+  "Trigger an OmniFocus database sync against the configured sync server (e.g. after a batch of writes).",
+  syncDatabaseTool.schema.shape,
+  syncDatabaseTool.handler
 );
 
 
