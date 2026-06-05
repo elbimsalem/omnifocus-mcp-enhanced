@@ -44,6 +44,7 @@ Want to see where the project is heading next? See the [roadmap](docs/roadmap/20
 
 ## 🆕 Latest Release
 
+- **v1.6.12** - **Project folder-moves now work.** AppleScript's `move project to folder` is unsupported in OmniFocus' dictionary ("Replacement not supported currently"), so `edit_item(newFolderName)` silently failed. Reparenting is now routed through the OmniJS bridge (`moveSections`): `edit_item` reparents a single project (and `newFolderName: ""` moves it to **root** / un-folders it), while `batch_edit_items` gains `newFolderName` (shared + per-op) to fold **many** projects into a folder in one pass — `moveSections` is array-native, so batch costs the same single evaluation as one.
 - **v1.6.11** - Added bulk + structural write ops via the OmniJS (`evaluateJavascript`) bridge: `batch_edit_items` (tag/flag edits across many tasks in a single pass — `ids` + shared edit, or per-item `operations`), `manage_tag` (create/nest/rename/reparent/delete a tag *definition*, plus `set`/`create` of tag **status** (active/onHold/dropped), **mutually-exclusive children** for a group, and **allowsNextAction**), `manage_folder` (create/nest/rename/delete a folder), and `sync_database` (trigger an OmniFocus sync).
 - **v1.6.10** - Fixed Inbox task completion via `edit_item`, fixed AppleScript special-character handling for apostrophes/backslashes, fixed JSON result escaping for special characters, and clarified `batch_add_items` / `mcporter` usage with working examples.
 - **v1.6.9** - Added task attachment support: `get_task_by_id` now lists attachment metadata, `dump_database` exports attachment/link metadata, and new `read_task_attachment` returns image attachments as MCP image content when possible.
@@ -492,11 +493,11 @@ read_task_attachment {
 2. **add_omnifocus_task** - Create tasks (enhanced with subtask support)
 3. **add_project** - Create projects
 4. **remove_item** - Delete tasks or projects
-5. **edit_item** - Edit tasks or projects (now supports task moves: project/parent/inbox)
+5. **edit_item** - Edit tasks or projects (supports task moves: project/parent/inbox; and project folder-moves via `newFolderName`, `""` → root)
 6. **move_task** - Move an existing task to project/parent task/inbox
 7. **batch_add_items** - Bulk add (enhanced with subtask support)
 8. **batch_remove_items** - Bulk remove
-9. **batch_edit_items** - 🌟 **NEW**: Apply tag/flag edits to many tasks/projects in a single OmniFocus pass (`ids` + a shared edit, or per-item `operations`) — far faster than one `edit_item` per task
+9. **batch_edit_items** - 🌟 **NEW**: Apply tag/flag/date/status edits — and project folder-moves (`newFolderName`, `""` → root) — to many tasks/projects in a single OmniFocus pass (`ids` + a shared edit, or per-item `operations`) — far faster than one `edit_item` per item
 10. **manage_tag** - 🌟 **NEW**: Create (optionally nested under a parent), rename, reparent, delete, or `set` a tag *definition* — incl. status (active/onHold/paused/dropped), mutually-exclusive children (e.g. a "Modes" group), and allowsNextAction. Structural/property tag ops `edit_item` can't do (location/geofence not supported)
 11. **manage_folder** - 🌟 **NEW**: Create (optionally nested), rename, or delete a folder (e.g. fix a typo'd folder name)
 12. **sync_database** - 🌟 **NEW**: Trigger an OmniFocus sync against the configured sync server (e.g. after a batch of writes)

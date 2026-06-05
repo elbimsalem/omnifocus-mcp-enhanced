@@ -16,6 +16,8 @@ export interface BatchEditOperation {
   newDeferDate?: string;
   newEstimatedMinutes?: number;
   newStatus?: 'incomplete' | 'completed' | 'dropped';
+  // Project-only: reparent into this folder, or to root when ''. Ignored for tasks.
+  newFolderName?: string;
 }
 
 export interface BatchEditItemsParams {
@@ -32,6 +34,7 @@ export interface BatchEditItemsParams {
   newDeferDate?: string;
   newEstimatedMinutes?: number;
   newStatus?: 'incomplete' | 'completed' | 'dropped';
+  newFolderName?: string;
 }
 
 export interface BatchEditItemResult {
@@ -68,6 +71,7 @@ export function normalizeOperations(params: BatchEditItemsParams): BatchEditOper
       newDeferDate: params.newDeferDate,
       newEstimatedMinutes: params.newEstimatedMinutes,
       newStatus: params.newStatus,
+      newFolderName: params.newFolderName,
     }));
   }
   return [];
@@ -101,6 +105,7 @@ export async function batchEditItems(params: BatchEditItemsParams): Promise<Batc
       if (!t) { t = new Tag(name); }
       return t;
     }
+    function findFolder(name) { return flattenedFolders.find(f => f.name === name) || null; }
     function resolveItem(id) {
       let item = Task.byIdentifier(id);
       if (item) return item;
@@ -158,6 +163,26 @@ export async function batchEditItems(params: BatchEditItemsParams): Promise<Batc
           else if (op.newStatus === 'incomplete') item.markIncomplete();
           else if (op.newStatus === 'dropped') item.drop(false);
           changed.push('status:' + op.newStatus);
+        }
+
+        // Project reparent (project-only). '' → root. AppleScript can't do this;
+        // moveSections needs the Project section, not its root task.
+        if (op.newFolderName !== undefined && op.newFolderName !== null) {
+          const proj = Project.byIdentifier(op.id);
+          if (!proj) {
+            changed.push('folder(skipped: not a project)');
+          } else {
+            let dest;
+            if (op.newFolderName === '') {
+              dest = library.ending;
+            } else {
+              const folder = findFolder(op.newFolderName);
+              if (!folder) throw new Error('folder not found: ' + op.newFolderName);
+              dest = folder.ending;
+            }
+            moveSections([proj], dest);
+            changed.push('folder');
+          }
         }
 
         return { id: op.id, name: item.name, success: true, changed };

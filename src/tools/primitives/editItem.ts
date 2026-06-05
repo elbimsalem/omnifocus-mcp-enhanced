@@ -2,6 +2,7 @@ import { executeAppleScript } from '../../utils/scriptExecution.js';
 import { buildAppleScriptJsonHelpers } from '../../utils/appleScriptJson.js';
 import { appleScriptDateCode } from '../../utils/dateFormatter.js';
 import { escapeAppleScriptString } from '../../utils/appleScriptString.js';
+import { moveProjects } from './moveProjects.js';
 
 // Status options for tasks and projects
 type TaskStatus = 'incomplete' | 'completed' | 'dropped';
@@ -474,26 +475,11 @@ ${datePreamble}
 `;
     }
 
-    // Move to a new folder
-    if (params.newFolderName !== undefined) {
-      const folderName = escapeAppleScriptString(params.newFolderName);
-      script += `
-          -- Move to new folder
-          set destFolder to missing value
-          try
-            set destFolder to first flattened folder where name = "${folderName}"
-          end try
-
-          if destFolder is missing value then
-            -- Create the folder if it doesn't exist
-            set destFolder to make new folder with properties {name:"${folderName}"}
-          end if
-
-          -- Move project to the folder
-          move foundItem to destFolder
-          set end of changedProperties to "folder"
-`;
-    }
+    // NOTE: project reparenting (newFolderName) is intentionally NOT handled here.
+    // AppleScript's `move project to folder` is unsupported in OmniFocus'
+    // dictionary ("Replacement not supported currently"), so editItem() delegates
+    // the folder-move to the OmniJS bridge (moveProjects) after this AppleScript
+    // property pass. See editItem() below.
   }
 
   script += `
@@ -559,6 +545,37 @@ export async function editItem(params: EditItemParams): Promise<{
     // Parse the result
     try {
       const result = JSON.parse(stdout);
+
+      // Project reparenting (newFolderName) can't go through AppleScript — its
+      // `move` is unsupported. Delegate to the OmniJS bridge once the AppleScript
+      // property pass has resolved the project. '' → move to root (un-folder).
+      if (
+        result.success &&
+        params.itemType === 'project' &&
+        params.newFolderName !== undefined
+      ) {
+        const moveRes = await moveProjects([
+          { id: result.id, folderName: params.newFolderName === '' ? null : params.newFolderName }
+        ]);
+        const moved = moveRes.results[0];
+        if (!moved || !moved.success) {
+          return {
+            success: false,
+            id: result.id,
+            name: result.name,
+            error: `folder move failed: ${moved?.error || moveRes.error || 'unknown'}`
+          };
+        }
+        const changed = result.changedProperties
+          ? `${result.changedProperties}, folder`
+          : 'folder';
+        return {
+          success: true,
+          id: result.id,
+          name: result.name,
+          changedProperties: changed
+        };
+      }
 
       // Return the result
       return {

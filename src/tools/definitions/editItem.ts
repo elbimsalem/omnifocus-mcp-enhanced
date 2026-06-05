@@ -29,7 +29,7 @@ export const schema = z.object({
 
   // Project-specific fields
   newSequential: z.boolean().optional().describe("Whether the project should be sequential"),
-  newFolderName: z.string().optional().describe("New folder to move the project to"),
+  newFolderName: z.string().optional().describe("For projects: reparent into this folder (via the OmniJS bridge — AppleScript's project move is unsupported). Set to \"\" to move the project to the root (un-folder)."),
   newProjectStatus: z.enum(['active', 'completed', 'dropped', 'onHold']).optional().describe("New status for projects")
 });
 
