@@ -38,6 +38,8 @@ export interface BatchTaskInfo {
   hasChildren?: boolean;
   childCount?: number;
   hasNote?: boolean;
+  repeating?: boolean;          // has a repetition rule (recurring task)
+  repetitionRule?: string | null; // the rule string (RRULE-like), or null
 }
 
 export interface BatchGetTasksResult {
@@ -82,6 +84,16 @@ export async function batchGetTasks(params: BatchGetTasksParams): Promise<BatchG
     function isDropped(t) {
       try { return t.taskStatus === Task.Status.Dropped; } catch (e) { return false; }
     }
+    // A repeating task is ONE object whose dates advance on completion; querying its id always
+    // resolves to the current (future, incomplete) occurrence. The reconciler needs to know it
+    // repeats so a forward date-jump reads as "completed + recurred", not a manual re-date.
+    function repInfo(t) {
+      try {
+        const r = t.repetitionRule;
+        return r ? { repeating: true, repetitionRule: r.ruleString || null }
+                 : { repeating: false, repetitionRule: null };
+      } catch (e) { return { repeating: false, repetitionRule: null }; }
+    }
 
     const tasks = ids.map(id => {
       const t = resolve(id);
@@ -89,6 +101,7 @@ export async function batchGetTasks(params: BatchGetTasksParams): Promise<BatchG
       const proj = t.containingProject || null;
       const parent = t.parent || null;
       const note = t.note || '';
+      const rep = repInfo(t);
       return {
         id: t.id.primaryKey,
         found: true,
@@ -107,7 +120,9 @@ export async function batchGetTasks(params: BatchGetTasksParams): Promise<BatchG
         estimateMinutes: (t.estimatedMinutes !== null && t.estimatedMinutes !== undefined) ? t.estimatedMinutes : null,
         hasChildren: (t.children || []).length > 0,
         childCount: (t.children || []).length,
-        hasNote: !!(note && note.length)
+        hasNote: !!(note && note.length),
+        repeating: rep.repeating,
+        repetitionRule: rep.repetitionRule
       };
     });
 
