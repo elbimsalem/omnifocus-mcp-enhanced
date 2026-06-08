@@ -2,6 +2,10 @@ import { executeAppleScript } from '../../utils/scriptExecution.js';
 import { appleScriptDateCode } from '../../utils/dateFormatter.js';
 import { buildAppleScriptJsonHelpers } from '../../utils/appleScriptJson.js';
 import { escapeAppleScriptString } from '../../utils/appleScriptString.js';
+import { evaluateOmniJs } from '../../utils/evaluateOmniJs.js';
+
+// How a repeat advances. Maps to OmniJS Task.RepetitionMethod.
+export type RepeatMethod = 'fixed' | 'defer-until-date' | 'due-after-completion';
 
 // Interface for task creation parameters
 export interface AddOmniFocusTaskParams {
@@ -16,6 +20,36 @@ export interface AddOmniFocusTaskParams {
   projectName?: string; // Project name to add task to
   parentTaskId?: string; // Parent task ID for subtask creation
   parentTaskName?: string; // Parent task name for subtask creation (alternative to ID)
+  repeatRule?: string; // ICS recurrence rule, e.g. "FREQ=WEEKLY" — makes the task repeat
+  repeatMethod?: RepeatMethod; // how the repeat advances (default 'fixed')
+}
+
+/**
+ * Build the OmniJS body that sets a task's repetition rule by id. AppleScript's
+ * repetition support is unreliable, so (matching the fork's other writes) this
+ * runs through the OmniJS bridge as a post-creation step. The method enum is
+ * resolved defensively because the live OmniJS naming (`DueAfterCompletion`) can
+ * differ from older mirrors (`DueDate`). Pure (no I/O) so it's unit-testable.
+ */
+export function buildRepetitionOmniJs(taskId: string, repeatRule: string, repeatMethod?: RepeatMethod): string {
+  const method = repeatMethod || 'fixed';
+  return `(() => {
+  try {
+    const t = Task.byIdentifier(${JSON.stringify(taskId)});
+    if (!t) return JSON.stringify({ success: false, error: "Task not found: " + ${JSON.stringify(taskId)} });
+    const RM = Task.RepetitionMethod;
+    const m = ${JSON.stringify(method)};
+    let method;
+    if (m === 'defer-until-date' || m === 'defer') method = RM.DeferUntilDate;
+    else if (m === 'due-after-completion' || m === 'due') method = (RM.DueAfterCompletion !== undefined ? RM.DueAfterCompletion : RM.DueDate);
+    else method = RM.Fixed;
+    t.repetitionRule = new Task.RepetitionRule(${JSON.stringify(repeatRule)}, method);
+    const r = t.repetitionRule;
+    return JSON.stringify({ success: true, ruleString: r ? r.ruleString : null });
+  } catch (e) {
+    return JSON.stringify({ success: false, error: String((e && e.message) ? e.message : e) });
+  }
+})()`;
 }
 
 export function buildTagAssignmentScript(tags: string[], targetVar: string): string {
@@ -152,7 +186,7 @@ async function validateParentTaskParams(params: AddOmniFocusTaskParams): Promise
 /**
  * Add a task to OmniFocus
  */
-export async function addOmniFocusTask(params: AddOmniFocusTaskParams): Promise<{ success: boolean, taskId?: string, error?: string }> {
+export async function addOmniFocusTask(params: AddOmniFocusTaskParams): Promise<{ success: boolean, taskId?: string, error?: string, warning?: string }> {
   try {
     // Validate parent task parameters
     const validation = await validateParentTaskParams(params);
@@ -178,6 +212,30 @@ export async function addOmniFocusTask(params: AddOmniFocusTaskParams): Promise<
     // Parse the result
     try {
       const result = JSON.parse(stdout);
+
+      // If the task was created and a repetition rule was requested, set it via
+      // the OmniJS bridge (AppleScript repetition is unreliable). A failure here
+      // is non-fatal — the task already exists — so surface it as a warning.
+      if (result.success && result.taskId && params.repeatRule) {
+        try {
+          const rep = await evaluateOmniJs<{ success: boolean; error?: string; ruleString?: string | null }>(
+            buildRepetitionOmniJs(result.taskId, params.repeatRule, params.repeatMethod)
+          );
+          if (!rep || !rep.success) {
+            return {
+              success: true,
+              taskId: result.taskId,
+              warning: `Task created but repetition rule not set: ${rep?.error || 'unknown error'}`
+            };
+          }
+        } catch (repError: any) {
+          return {
+            success: true,
+            taskId: result.taskId,
+            warning: `Task created but repetition rule not set: ${repError?.message || repError}`
+          };
+        }
+      }
 
       // Return the result
       return {

@@ -13,7 +13,9 @@ export const schema = z.object({
   tags: z.array(z.string()).optional().describe("Tags to assign to the task"),
   projectName: z.string().optional().describe("The name of the project to add the task to (will add to inbox if not specified)"),
   parentTaskId: z.string().optional().describe("The ID of the parent task to create this task as a subtask"),
-  parentTaskName: z.string().optional().describe("The name of the parent task to create this task as a subtask (alternative to parentTaskId)")
+  parentTaskName: z.string().optional().describe("The name of the parent task to create this task as a subtask (alternative to parentTaskId)"),
+  repeatRule: z.string().optional().describe("Make the task repeat. ICS recurrence rule (RRULE) string, e.g. 'FREQ=WEEKLY', 'FREQ=DAILY;INTERVAL=2', 'FREQ=MONTHLY;BYDAY=1MO'. Recurrence advances the task's due/defer date, so set dueDate or deferDate for it to actually recur."),
+  repeatMethod: z.enum(['fixed', 'defer-until-date', 'due-after-completion']).optional().describe("How the repeat advances (default 'fixed'). 'fixed' = repeats on a fixed calendar schedule; 'defer-until-date'/'due-after-completion' = next occurrence is relative to completion.")
 });
 
 export async function handler(args: z.infer<typeof schema>, extra: RequestHandlerExtra) {
@@ -45,10 +47,16 @@ export async function handler(args: z.infer<typeof schema>, extra: RequestHandle
         ? ` planned for ${new Date(args.plannedDate).toLocaleDateString()}`
         : "";
 
+      let repeatText = args.repeatRule && !result.warning
+        ? ` repeating (${args.repeatRule})`
+        : "";
+
+      let warningText = result.warning ? `\n\n⚠️ ${result.warning}` : "";
+
       return {
         content: [{
           type: "text" as const,
-          text: `✅ Task "${args.name}" created successfully ${locationText}${dueDateText}${plannedDateText}${tagText}.\n\nid: ${result.taskId}`
+          text: `✅ Task "${args.name}" created successfully ${locationText}${dueDateText}${plannedDateText}${repeatText}${tagText}.\n\nid: ${result.taskId}${warningText}`
         }]
       };
     } else {

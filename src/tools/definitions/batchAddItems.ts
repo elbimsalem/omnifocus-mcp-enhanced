@@ -18,6 +18,8 @@ export const schema = z.object({
     projectName: z.string().optional().describe("For tasks: The project name for top-level tasks. Omit this when parentTaskId or parentTaskName is set."),
     parentTaskId: z.string().optional().describe("For tasks: The parent task ID for subtasks. When this is set, do not also provide projectName."),
     parentTaskName: z.string().optional().describe("For tasks: The parent task name for subtasks. Subtasks inherit project from their parent, so do not also provide projectName."),
+    repeatRule: z.string().optional().describe("For tasks: make the task repeat. ICS recurrence rule (RRULE), e.g. 'FREQ=WEEKLY', 'FREQ=MONTHLY;BYDAY=1MO'. Recurrence advances the due/defer date, so set dueDate or deferDate for it to actually recur."),
+    repeatMethod: z.enum(['fixed', 'defer-until-date', 'due-after-completion']).optional().describe("For tasks: how the repeat advances (default 'fixed'). 'fixed' = fixed calendar schedule; the others advance relative to completion."),
 
     // Project-specific properties
     folderName: z.string().optional().describe("For projects: The name of the folder to add the project to"),
@@ -45,7 +47,8 @@ export async function handler(args: z.infer<typeof schema>, extra: RequestHandle
         if (item.success) {
           const itemType = args.items[index].type;
           const itemName = args.items[index].name;
-          return `- ✅ ${itemType}: "${itemName}" (id: ${item.id})`;
+          const warn = item.warning ? ` ⚠️ ${item.warning}` : '';
+          return `- ✅ ${itemType}: "${itemName}" (id: ${item.id})${warn}`;
         } else {
           const itemType = args.items[index].type;
           const itemName = args.items[index].name;

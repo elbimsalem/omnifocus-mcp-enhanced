@@ -1,4 +1,4 @@
-import { addOmniFocusTask, AddOmniFocusTaskParams } from './addOmniFocusTask.js';
+import { addOmniFocusTask, AddOmniFocusTaskParams, RepeatMethod } from './addOmniFocusTask.js';
 import { addProject, AddProjectParams } from './addProject.js';
 
 // Define the parameters for the batch operation
@@ -15,6 +15,8 @@ export type BatchAddItemsParams = {
   projectName?: string; // For tasks
   parentTaskId?: string; // For subtasks
   parentTaskName?: string; // For subtasks (alternative to ID)
+  repeatRule?: string; // For tasks: ICS recurrence rule, e.g. "FREQ=WEEKLY"
+  repeatMethod?: RepeatMethod; // For tasks: how the repeat advances (default 'fixed')
   folderName?: string; // For projects
   sequential?: boolean; // For projects
 };
@@ -24,6 +26,7 @@ type ItemResult = {
   success: boolean;
   id?: string;
   error?: string;
+  warning?: string;
 };
 
 // Define the result type for the batch operation
@@ -82,7 +85,9 @@ export async function batchAddItems(items: BatchAddItemsParams[]): Promise<Batch
             tags: item.tags,
             projectName: item.projectName,
             parentTaskId: item.parentTaskId,
-            parentTaskName: item.parentTaskName
+            parentTaskName: item.parentTaskName,
+            repeatRule: item.repeatRule,
+            repeatMethod: item.repeatMethod
           };
           
           // Add task
@@ -90,7 +95,8 @@ export async function batchAddItems(items: BatchAddItemsParams[]): Promise<Batch
           results.push({
             success: taskResult.success,
             id: taskResult.taskId,
-            error: taskResult.error
+            error: taskResult.error,
+            warning: taskResult.warning
           });
         } else if (item.type === 'project') {
           // Extract project-specific params

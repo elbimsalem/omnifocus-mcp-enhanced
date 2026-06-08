@@ -1,6 +1,27 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { buildTagAssignmentScript, generateAppleScript } from './addOmniFocusTask.js';
+import { buildTagAssignmentScript, generateAppleScript, buildRepetitionOmniJs } from './addOmniFocusTask.js';
+
+test('buildRepetitionOmniJs sets a repetition rule by task id with a defensive method lookup', () => {
+  const js = buildRepetitionOmniJs('abc123', 'FREQ=WEEKLY', 'fixed');
+  assert.match(js, /Task\.byIdentifier\("abc123"\)/);
+  assert.match(js, /Task not found/);
+  assert.match(js, /new Task\.RepetitionRule\("FREQ=WEEKLY", method\)/);
+  assert.match(js, /method = RM\.Fixed/);
+  assert.match(js, /JSON\.stringify\(\{ success: true/);
+});
+
+test('buildRepetitionOmniJs maps due-after-completion with a DueDate fallback', () => {
+  const js = buildRepetitionOmniJs('t1', 'FREQ=MONTHLY;BYDAY=1MO', 'due-after-completion');
+  assert.match(js, /RM\.DueAfterCompletion !== undefined \? RM\.DueAfterCompletion : RM\.DueDate/);
+  assert.match(js, /new Task\.RepetitionRule\("FREQ=MONTHLY;BYDAY=1MO", method\)/);
+});
+
+test('buildRepetitionOmniJs maps defer-until-date and defaults method to fixed', () => {
+  assert.match(buildRepetitionOmniJs('t2', 'FREQ=DAILY;INTERVAL=2', 'defer-until-date'), /method = RM\.DeferUntilDate/);
+  // omitted method → 'fixed' embedded
+  assert.match(buildRepetitionOmniJs('t3', 'FREQ=WEEKLY'), /const m = "fixed"/);
+});
 
 test('buildTagAssignmentScript creates missing tags before assignment', () => {
   const script = buildTagAssignmentScript(['mcp-test-tag'], 'newTask');
